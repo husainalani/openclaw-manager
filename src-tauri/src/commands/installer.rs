@@ -1269,9 +1269,9 @@ pub async fn check_openclaw_update() -> Result<UpdateInfo, String> {
         });
     }
 
-    // Compare versions
-    let current = current_version.clone().unwrap();
-    let latest = latest_version.clone().unwrap();
+    // Compare versions (both are confirmed Some by the early-return guards above)
+    let current = current_version.as_deref().unwrap_or_default().to_string();
+    let latest = latest_version.as_deref().unwrap_or_default().to_string();
     let update_available = compare_versions(&current, &latest);
 
     info!("[Version Check] Update available: {}", update_available);

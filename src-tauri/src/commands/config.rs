@@ -1010,7 +1010,9 @@ fn sync_to_mcporter(configs: &HashMap<String, MCPConfig>) -> Result<(), String> 
         root_val["mcpServers"] = serde_json::json!({});
     }
 
-    let mcp_servers_obj = root_val["mcpServers"].as_object_mut().unwrap();
+    let mcp_servers_obj = root_val["mcpServers"]
+        .as_object_mut()
+        .ok_or_else(|| "mcpServers is not a JSON object".to_string())?;
 
     // Sync: Add/Update enabled servers from Manager
     for (name, config) in configs {
