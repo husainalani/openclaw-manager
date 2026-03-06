@@ -751,7 +751,7 @@ if (-not $nodeVersion) {
 }
 
 Write-Host "Installing OpenClaw using npm..."
-npm install -g openclaw@latest --unsafe-perm
+npm install -g openclaw@latest
 
 # Verify installation
 $openclawVersion = openclaw --version 2>$null
@@ -798,7 +798,7 @@ if ! command -v node &> /dev/null; then
 fi
 
 echo "Installing OpenClaw using npm..."
-npm install -g openclaw@latest --unsafe-perm
+npm install -g openclaw@latest
 
 # Verify installation
 openclaw --version

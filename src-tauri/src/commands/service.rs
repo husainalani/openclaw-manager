@@ -212,7 +212,7 @@ pub async fn start_service() -> Result<String, String> {
     }
 
     // Reset stop flag
-    INTENTIONAL_STOP.store(false, Ordering::Relaxed);
+    INTENTIONAL_STOP.store(false, Ordering::SeqCst);
 
     // Spawn supervisor thread
     thread::spawn(|| {
@@ -221,7 +221,7 @@ pub async fn start_service() -> Result<String, String> {
             thread::sleep(Duration::from_secs(10));
 
             // If stop was intentional, exit supervisor
-            if INTENTIONAL_STOP.load(Ordering::Relaxed) {
+            if INTENTIONAL_STOP.load(Ordering::SeqCst) {
                 info!("[Service Supervisor] Intentional stop detected, exiting thread");
                 break;
             }
@@ -231,7 +231,7 @@ pub async fn start_service() -> Result<String, String> {
                 warn!("[Service Supervisor] Gateway health check failed! Restarting...");
                 
                 // Double check flag just in case
-                if INTENTIONAL_STOP.load(Ordering::Relaxed) { break; }
+                if INTENTIONAL_STOP.load(Ordering::SeqCst) { break; }
 
                 if let Err(e) = shell::spawn_openclaw_gateway() {
                     error!("[Service Supervisor] Failed to restart service: {}", e);
@@ -258,7 +258,7 @@ pub async fn stop_service() -> Result<String, String> {
     info!("[Service] Stopping service...");
 
     // Set flag so supervisor knows this is intentional
-    INTENTIONAL_STOP.store(true, Ordering::Relaxed);
+    INTENTIONAL_STOP.store(true, Ordering::SeqCst);
 
     // 1. Try graceful stop
     let _ = shell::run_openclaw(&["gateway", "stop"]);

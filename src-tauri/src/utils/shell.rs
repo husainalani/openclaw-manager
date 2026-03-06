@@ -409,8 +409,13 @@ pub fn run_openclaw(args: &[&str]) -> Result<String, String> {
     }
 }
 
-/// Default Gateway Token (fallback only)
-pub const DEFAULT_GATEWAY_TOKEN: &str = "openclaw-manager-local-token";
+/// Generate a cryptographically random 256-bit hex token using the OS CSPRNG.
+fn generate_secure_token() -> String {
+    use rand::RngCore;
+    let mut bytes = [0u8; 32];
+    rand::rngs::OsRng.fill_bytes(&mut bytes);
+    bytes.iter().map(|b| format!("{:02x}", b)).collect()
+}
 
 /// Read the actual gateway auth token from openclaw.json config.
 /// If no token exists (fresh install), generates one and saves it to config.
@@ -456,20 +461,9 @@ fn get_gateway_token_from_config() -> String {
         return token;
     }
 
-    // No token found — generate one and save it to config
-    info!("[Shell] No gateway token found, generating new token...");
-    use std::time::{SystemTime, UNIX_EPOCH};
-    let timestamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_nanos();
-    let random_part: u64 = (timestamp as u64) ^ 0x5DEECE66Du64;
-    let new_token = format!(
-        "{:016x}{:016x}{:016x}",
-        random_part,
-        random_part.wrapping_mul(0x5DEECE66Du64),
-        timestamp as u64
-    );
+    // No token found — generate a cryptographically secure one and save it to config
+    info!("[Shell] No gateway token found, generating new secure token...");
+    let new_token = generate_secure_token();
 
     // Ensure gateway.auth path exists in config
     if config.get("gateway").is_none() {
@@ -493,7 +487,8 @@ fn get_gateway_token_from_config() -> String {
     if let Ok(content) = serde_json::to_string_pretty(&config) {
         if let Err(e) = file::write_file(&config_path, &content) {
             warn!("[Shell] Failed to save generated token to config: {}", e);
-            return DEFAULT_GATEWAY_TOKEN.to_string();
+            // Return the in-memory token anyway; it is ephemeral but still random
+            return new_token;
         }
     }
 
