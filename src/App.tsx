@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { invoke } from '@tauri-apps/api/core';
 import { Sidebar } from './components/Layout/Sidebar';
 import { Header } from './components/Layout/Header';
 import { Dashboard } from './components/Dashboard';
@@ -9,53 +8,22 @@ import { Channels } from './components/Channels';
 import { MCP } from './components/MCP';
 import { Skills } from './components/Skills';
 import { Settings } from './components/Settings';
-
 import { Logs } from './components/Logs';
+import { Agents } from './components/Agents';
 import { appLogger } from './lib/logger';
 import { isTauri } from './lib/tauri';
 import { Download, X, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { useAppStore } from './stores/appStore';
+import { useEnvironment } from './hooks/useEnvironment';
+import { useOpenClawUpdate } from './hooks/useOpenClawUpdate';
+import { useManagerUpdate } from './hooks/useManagerUpdate';
+import { useSecurityCheck } from './hooks/useSecurityCheck';
+import { useState } from 'react';
+import { invoke } from '@tauri-apps/api/core';
+import type { ServiceStatus } from './lib/tauri';
 
-import { Agents } from './components/Agents';
-
+export type { EnvironmentStatus } from './lib/tauri';
 export type PageType = 'dashboard' | 'mcp' | 'skills' | 'ai' | 'channels' | 'agents' | 'logs' | 'settings';
-
-export interface EnvironmentStatus {
-  node_installed: boolean;
-  node_version: string | null;
-  node_version_ok: boolean;
-  git_installed: boolean;
-  git_version: string | null;
-  openclaw_installed: boolean;
-  openclaw_version: string | null;
-  gateway_service_installed: boolean;
-  config_dir_exists: boolean;
-  ready: boolean;
-  os: string;
-}
-
-interface ServiceStatus {
-  running: boolean;
-  pid: number | null;
-  port: number;
-}
-
-interface UpdateInfo {
-  update_available: boolean;
-  current_version: string | null;
-  latest_version: string | null;
-  error: string | null;
-}
-
-interface UpdateResult {
-  success: boolean;
-  message: string;
-  error?: string;
-}
-
-interface SecureVersionInfo {
-  current_version: string;
-  is_secure: boolean;
-}
 
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean, error: Error | null }> {
   constructor(props: { children: React.ReactNode }) {
@@ -94,199 +62,51 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
 
 function App() {
   const [currentPage, setCurrentPage] = useState<PageType>('dashboard');
-  const [isReady, setIsReady] = useState<boolean | null>(null);
-  const [envStatus, setEnvStatus] = useState<EnvironmentStatus | null>(null);
   const [serviceStatus, setServiceStatus] = useState<ServiceStatus | null>(null);
+  const { setServiceStatus: storeSetServiceStatus } = useAppStore();
 
-  // Update related state
-  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
-  const [showUpdateBanner, setShowUpdateBanner] = useState(false);
-  const [updating, setUpdating] = useState(false);
-  const [updateResult, setUpdateResult] = useState<UpdateResult | null>(null);
+  const { isReady, envStatus, checkEnvironment } = useEnvironment();
 
-  // Manager Update state
-  const [managerUpdateAvailable, setManagerUpdateAvailable] = useState(false);
-  const [managerUpdateVersion, setManagerUpdateVersion] = useState<string | null>(null);
-  const [showManagerUpdateBanner, setShowManagerUpdateBanner] = useState(false);
-  const [managerUpdating, setManagerUpdating] = useState(false);
-  const [managerUpdateProgress, setManagerUpdateProgress] = useState(0);
-  const [managerUpdateResult, setManagerUpdateResult] = useState<UpdateResult | null>(null);
-  const [managerUpdateObj, setManagerUpdateObj] = useState<any>(null);
+  const { updateInfo, showUpdateBanner, updating, updateResult, checkUpdate, handleUpdate, dismissUpdateBanner } =
+    useOpenClawUpdate(checkEnvironment);
 
-  // Security check state
-  const [secureVersionInfo, setSecureVersionInfo] = useState<SecureVersionInfo | null>(null);
-  const [showSecurityBanner, setShowSecurityBanner] = useState(false);
+  const {
+    managerUpdateAvailable,
+    managerUpdateVersion,
+    showManagerUpdateBanner,
+    managerUpdating,
+    managerUpdateProgress,
+    managerUpdateResult,
+    checkManagerUpdate,
+    handleManagerUpdate,
+    dismissManagerUpdateBanner,
+  } = useManagerUpdate();
 
-  // Check environment
-  const checkEnvironment = useCallback(async () => {
-    if (!isTauri()) {
-      appLogger.warn('Not in Tauri environment, skipping environment check');
-      setIsReady(true);
-      return;
-    }
-
-    appLogger.info('Starting system environment check...');
-    try {
-      const status = await invoke<EnvironmentStatus>('check_environment');
-      appLogger.info('Environment check completed', status);
-      setEnvStatus(status);
-      setIsReady(true); // Always show main interface
-    } catch (e) {
-      appLogger.error('Environment check failed', e);
-      setIsReady(true);
-    }
-  }, []);
-
-  // Check for updates
-  const checkUpdate = useCallback(async () => {
-    if (!isTauri()) return;
-
-    appLogger.info('Checking for OpenClaw updates...');
-    try {
-      const info = await invoke<UpdateInfo>('check_openclaw_update');
-      appLogger.info('Update check result', info);
-      setUpdateInfo(info);
-      if (info.update_available) {
-        setShowUpdateBanner(true);
-      }
-    } catch (e) {
-      appLogger.error('Update check failed', e);
-    }
-  }, []);
-
-  // Check Manager Update
-  const checkManagerUpdate = useCallback(async () => {
-    if (!isTauri()) return;
-    try {
-      const { check } = await import('@tauri-apps/plugin-updater');
-      const update = await check();
-      if (update) {
-        setManagerUpdateAvailable(true);
-        setManagerUpdateVersion(update.version);
-        setManagerUpdateObj(update);
-        setShowManagerUpdateBanner(true);
-      }
-    } catch (e) {
-      appLogger.error('Manager update check failed', e);
-    }
-  }, []);
-
-  // Check security version
-  const checkSecurity = useCallback(async () => {
-    if (!isTauri()) return;
-
-    appLogger.info('Checking OpenClaw version security...');
-    try {
-      const info = await invoke<SecureVersionInfo>('check_secure_version');
-      appLogger.info('Security check result', info);
-      setSecureVersionInfo(info);
-      if (!info.is_secure) {
-        setShowSecurityBanner(true);
-      }
-    } catch (e) {
-      appLogger.error('Security check failed', e);
-    }
-  }, []);
-
-  // Perform update
-  const handleUpdate = async () => {
-    setUpdating(true);
-    setUpdateResult(null);
-    try {
-      const result = await invoke<UpdateResult>('update_openclaw');
-      setUpdateResult(result);
-      if (result.success) {
-        // Re-check environment after successful update
-        await checkEnvironment();
-        // Close notification after 3 seconds
-        setTimeout(() => {
-          setShowUpdateBanner(false);
-          setUpdateResult(null);
-        }, 3000);
-      }
-    } catch (e) {
-      setUpdateResult({
-        success: false,
-        message: 'Error occurred during update',
-        error: String(e),
-      });
-    } finally {
-      setUpdating(false);
-    }
-  };
-
-  // Perform Manager Update (from banner)
-  const handleManagerUpdate = async () => {
-    if (!managerUpdateObj) return;
-    setManagerUpdating(true);
-    setManagerUpdateProgress(0);
-    setManagerUpdateResult(null);
-    try {
-      let downloaded = 0;
-      let contentLength = 1;
-      await managerUpdateObj.downloadAndInstall((event: any) => {
-        switch (event.event) {
-          case 'Started':
-            contentLength = event.data.contentLength || 1;
-            break;
-          case 'Progress':
-            downloaded += event.data.chunkLength;
-            setManagerUpdateProgress(Math.min(100, Math.round((downloaded / contentLength) * 100)));
-            break;
-          case 'Finished':
-            setManagerUpdateProgress(100);
-            break;
-        }
-      });
-      setManagerUpdateResult({ success: true, message: 'Update installed successfully! Restarting...' });
-
-      // Restart app after 2 seconds
-      setTimeout(async () => {
-        try {
-          const { relaunch } = await import('@tauri-apps/plugin-process');
-          await relaunch();
-        } catch (err) {
-          appLogger.error('Relaunch failed', err);
-        }
-      }, 2000);
-    } catch (e: any) {
-      appLogger.error('Manager update download failed', e);
-      setManagerUpdateResult({ success: false, message: 'Update failed', error: e?.message || String(e) });
-      setManagerUpdating(false);
-    }
-  };
+  const { secureVersionInfo, showSecurityBanner, setShowSecurityBanner, checkSecurity } = useSecurityCheck();
 
   useEffect(() => {
     appLogger.info('🦞 App component mounted');
     checkEnvironment();
   }, [checkEnvironment]);
 
-  // Delay update check after startup (avoid blocking startup)
+  // Delay update/security checks after startup to avoid blocking startup
   useEffect(() => {
     if (!isTauri()) return;
-    const timer1 = setTimeout(() => { checkUpdate(); }, 2000);
-    const timer2 = setTimeout(() => { checkManagerUpdate(); }, 6000);
-    return () => { clearTimeout(timer1); clearTimeout(timer2); };
-  }, [checkUpdate, checkManagerUpdate]);
+    const t1 = setTimeout(() => { checkSecurity(); }, 1000);
+    const t2 = setTimeout(() => { checkUpdate(); }, 2000);
+    const t3 = setTimeout(() => { checkManagerUpdate(); }, 6000);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+  }, [checkSecurity, checkUpdate, checkManagerUpdate]);
 
-  // Check security after startup
+  // Periodically poll service status
   useEffect(() => {
-    if (!isTauri()) return;
-    const timer = setTimeout(() => {
-      checkSecurity();
-    }, 1000); // Check shortly after startup
-    return () => clearTimeout(timer);
-  }, [checkSecurity]);
-
-  // Periodically get service status
-  useEffect(() => {
-    // Don't poll if not in Tauri environment
     if (!isTauri()) return;
 
     const fetchServiceStatus = async () => {
       try {
         const status = await invoke<ServiceStatus>('get_service_status');
         setServiceStatus(status);
+        storeSetServiceStatus(status);
       } catch {
         // Silently handle polling errors
       }
@@ -294,14 +114,13 @@ function App() {
     fetchServiceStatus();
     const interval = setInterval(fetchServiceStatus, 3000);
     return () => clearInterval(interval);
-  }, []);
+  }, [storeSetServiceStatus]);
 
   const handleSetupComplete = useCallback(() => {
     appLogger.info('Setup wizard completed');
-    checkEnvironment(); // Re-check environment
+    checkEnvironment();
   }, [checkEnvironment]);
 
-  // Page navigation handler
   const handleNavigate = (page: PageType) => {
     appLogger.action('Page navigation', { from: currentPage, to: page });
     setCurrentPage(page);
@@ -321,7 +140,6 @@ function App() {
       ai: <AIConfig />,
       channels: <Channels />,
       agents: <Agents />,
-
       logs: <Logs />,
       settings: <Settings onEnvironmentChange={checkEnvironment} />,
     };
@@ -343,7 +161,6 @@ function App() {
     );
   };
 
-  // Checking environment
   if (isReady === null) {
     return (
       <div className="flex h-screen bg-dark-900 items-center justify-center">
@@ -358,13 +175,11 @@ function App() {
     );
   }
 
-  // Main interface
   return (
     <div className="flex h-screen bg-dark-900 overflow-hidden">
-      {/* Background decoration */}
       <div className="fixed inset-0 bg-gradient-radial pointer-events-none" />
 
-      {/* Security Banner (High Priority) */}
+      {/* Security Banner */}
       <AnimatePresence>
         {showSecurityBanner && secureVersionInfo && !secureVersionInfo.is_secure && (
           <motion.div
@@ -396,7 +211,7 @@ function App() {
         )}
       </AnimatePresence>
 
-      {/* Update banner */}
+      {/* OpenClaw Update Banner */}
       <AnimatePresence>
         {showUpdateBanner && updateInfo?.update_available && (
           <motion.div
@@ -431,7 +246,6 @@ function App() {
                   )}
                 </div>
               </div>
-
               <div className="flex items-center gap-2">
                 {!updateResult && (
                   <button
@@ -440,25 +254,13 @@ function App() {
                     className="px-4 py-1.5 bg-white/20 hover:bg-white/30 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
                   >
                     {updating ? (
-                      <>
-                        <Loader2 size={14} className="animate-spin" />
-                        Updating...
-                      </>
+                      <><Loader2 size={14} className="animate-spin" />Updating...</>
                     ) : (
-                      <>
-                        <Download size={14} />
-                        Update Now
-                      </>
+                      <><Download size={14} />Update Now</>
                     )}
                   </button>
                 )}
-                <button
-                  onClick={() => {
-                    setShowUpdateBanner(false);
-                    setUpdateResult(null);
-                  }}
-                  className="p-1.5 hover:bg-white/20 rounded-lg transition-colors text-white/70 hover:text-white"
-                >
+                <button onClick={dismissUpdateBanner} className="p-1.5 hover:bg-white/20 rounded-lg transition-colors text-white/70 hover:text-white">
                   <X size={16} />
                 </button>
               </div>
@@ -467,7 +269,7 @@ function App() {
         )}
       </AnimatePresence>
 
-      {/* Manager update banner */}
+      {/* Manager Update Banner */}
       <AnimatePresence>
         {showManagerUpdateBanner && managerUpdateAvailable && (
           <motion.div
@@ -512,7 +314,6 @@ function App() {
                   )}
                 </div>
               </div>
-
               <div className="flex items-center gap-2">
                 {!managerUpdateResult && (
                   <button
@@ -521,25 +322,13 @@ function App() {
                     className="px-4 py-1.5 bg-white/20 hover:bg-white/30 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
                   >
                     {managerUpdating ? (
-                      <>
-                        <Loader2 size={14} className="animate-spin" />
-                        Updating...
-                      </>
+                      <><Loader2 size={14} className="animate-spin" />Updating...</>
                     ) : (
-                      <>
-                        <Download size={14} />
-                        Update Now
-                      </>
+                      <><Download size={14} />Update Now</>
                     )}
                   </button>
                 )}
-                <button
-                  onClick={() => {
-                    setShowManagerUpdateBanner(false);
-                    setManagerUpdateResult(null);
-                  }}
-                  className="p-1.5 hover:bg-white/20 rounded-lg transition-colors text-white/70 hover:text-white"
-                >
+                <button onClick={dismissManagerUpdateBanner} className="p-1.5 hover:bg-white/20 rounded-lg transition-colors text-white/70 hover:text-white">
                   <X size={16} />
                 </button>
               </div>
@@ -548,15 +337,10 @@ function App() {
         )}
       </AnimatePresence>
 
-      {/* Sidebar */}
       <Sidebar currentPage={currentPage} onNavigate={handleNavigate} serviceStatus={serviceStatus} />
 
-      {/* Main content area */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header (macOS drag area) */}
         <Header currentPage={currentPage} />
-
-        {/* Page content */}
         <main className="flex-1 overflow-hidden p-6">
           <ErrorBoundary>
             {renderPage()}
