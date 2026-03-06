@@ -1,6 +1,6 @@
 [package]
 name = "openclaw-manager"
-version = "0.0.14"
+version = "0.0.17"
 description = "OpenClaw Cross-Platform Manager"
 authors = ["OpenClaw Team"]
 edition = "2021"
@@ -27,6 +27,7 @@ serde_yaml = "0.9"
 regex = "1"
 once_cell = "1"
 tauri-plugin-updater = "2"
+rand = { version = "0.8", features = ["getrandom"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 cocoa = "0.26"

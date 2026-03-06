@@ -160,9 +160,13 @@ pub async fn run_doctor() -> Result<Vec<DiagnosticResult>, String> {
     // Run openclaw doctor
     if openclaw_installed {
         let doctor_result = shell::run_openclaw(&["doctor"]);
+        let passed = match &doctor_result {
+            Ok(output) => !output.contains("invalid"),
+            Err(_) => false,
+        };
         results.push(DiagnosticResult {
             name: "OpenClaw Doctor".to_string(),
-            passed: doctor_result.is_ok() && !doctor_result.as_ref().unwrap().contains("invalid"),
+            passed,
             message: doctor_result.unwrap_or_else(|e| e),
             suggestion: None,
         });

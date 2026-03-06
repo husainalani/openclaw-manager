@@ -5,8 +5,7 @@ import { StatusCard } from './StatusCard';
 import { QuickActions } from './QuickActions';
 import { SystemInfo } from './SystemInfo';
 import { Setup } from '../Setup';
-import { api, ServiceStatus, isTauri } from '../../lib/tauri';
-import { EnvironmentStatus } from '../../App';
+import { api, ServiceStatus, isTauri, type EnvironmentStatus } from '../../lib/tauri';
 
 interface DashboardProps {
   envStatus: EnvironmentStatus | null;

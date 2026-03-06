@@ -52,7 +52,10 @@ pub async fn check_port_in_use(port: u16) -> Result<bool, String> {
     use std::time::Duration;
 
     let addr = format!("127.0.0.1:{}", port);
-    match TcpStream::connect_timeout(&addr.parse().unwrap(), Duration::from_millis(500)) {
+    let socket_addr: std::net::SocketAddr = addr
+        .parse()
+        .map_err(|e: std::net::AddrParseError| e.to_string())?;
+    match TcpStream::connect_timeout(&socket_addr, Duration::from_millis(500)) {
         Ok(_) => {
             info!("[Process Check] Port {} is in use", port);
             Ok(true)

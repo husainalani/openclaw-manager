@@ -43,6 +43,42 @@ export interface SystemInfo {
   config_dir: string;
 }
 
+// Environment status (from check_environment command)
+export interface EnvironmentStatus {
+  node_installed: boolean;
+  node_version: string | null;
+  node_version_ok: boolean;
+  git_installed: boolean;
+  git_version: string | null;
+  openclaw_installed: boolean;
+  openclaw_version: string | null;
+  gateway_service_installed: boolean;
+  config_dir_exists: boolean;
+  ready: boolean;
+  os: string;
+}
+
+// Update info (from check_openclaw_update command)
+export interface UpdateInfo {
+  update_available: boolean;
+  current_version: string | null;
+  latest_version: string | null;
+  error: string | null;
+}
+
+// Update result (from update_openclaw command)
+export interface UpdateResult {
+  success: boolean;
+  message: string;
+  error?: string;
+}
+
+// Secure version info (from check_secure_version command)
+export interface SecureVersionInfo {
+  current_version: string;
+  is_secure: boolean;
+}
+
 // AI Provider option (legacy compatibility)
 export interface AIProviderOption {
   id: string;
