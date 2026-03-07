@@ -10,6 +10,7 @@ import { Skills } from './components/Skills';
 import { Settings } from './components/Settings';
 import { Logs } from './components/Logs';
 import { Agents } from './components/Agents';
+import { Backup } from './components/Backup';
 import { appLogger } from './lib/logger';
 import { isTauri } from './lib/tauri';
 import { Download, X, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
@@ -23,7 +24,7 @@ import { invoke } from '@tauri-apps/api/core';
 import type { ServiceStatus } from './lib/tauri';
 
 export type { EnvironmentStatus } from './lib/tauri';
-export type PageType = 'dashboard' | 'mcp' | 'skills' | 'ai' | 'channels' | 'agents' | 'logs' | 'settings';
+export type PageType = 'dashboard' | 'mcp' | 'skills' | 'ai' | 'channels' | 'agents' | 'logs' | 'backup' | 'settings';
 
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean, error: Error | null }> {
   constructor(props: { children: React.ReactNode }) {
@@ -116,6 +117,21 @@ function App() {
     return () => clearInterval(interval);
   }, [storeSetServiceStatus]);
 
+  // Keyboard shortcuts: Ctrl+1..9 for page navigation
+  useEffect(() => {
+    const pages: PageType[] = ['dashboard', 'mcp', 'skills', 'agents', 'ai', 'channels', 'logs', 'backup', 'settings'];
+    const handler = (e: KeyboardEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      const idx = parseInt(e.key) - 1;
+      if (idx >= 0 && idx < pages.length) {
+        e.preventDefault();
+        setCurrentPage(pages[idx]);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
+
   const handleSetupComplete = useCallback(() => {
     appLogger.info('Setup wizard completed');
     checkEnvironment();
@@ -141,6 +157,7 @@ function App() {
       channels: <Channels />,
       agents: <Agents />,
       logs: <Logs />,
+      backup: <Backup />,
       settings: <Settings onEnvironmentChange={checkEnvironment} />,
     };
 

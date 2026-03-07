@@ -17,6 +17,7 @@ export function ServiceManager() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const logsEndRef = useRef<HTMLDivElement>(null);
+  const [showRestartConfirm, setShowRestartConfirm] = useState(false);
 
   serviceLogger.debug('ServiceManager component rendered');
 
@@ -80,6 +81,33 @@ export function ServiceManager() {
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
+      {/* Restart confirmation modal */}
+      {showRestartConfirm && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-dark-800 border border-dark-500 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <h3 className="text-lg font-bold text-white mb-2">Restart Service?</h3>
+            <p className="text-gray-400 text-sm mb-6">
+              This will stop and restart the OpenClaw service. Active connections will be interrupted briefly.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowRestartConfirm(false)}
+                className="px-4 py-2 text-gray-300 hover:text-white hover:bg-dark-700 rounded-lg transition-colors text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { setShowRestartConfirm(false); handleAction('restart'); }}
+                className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors text-sm flex items-center gap-2"
+              >
+                <RotateCcw size={14} />
+                Restart
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Action buttons bar */}
       <div className="flex items-center gap-4 mb-4">
         <div className="flex items-center gap-2">
@@ -118,7 +146,7 @@ export function ServiceManager() {
           </button>
 
           <button
-            onClick={() => handleAction('restart')}
+            onClick={() => setShowRestartConfirm(true)}
             disabled={actionLoading !== null}
             className={clsx(
               'flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all',
