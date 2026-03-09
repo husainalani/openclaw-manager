@@ -3,12 +3,12 @@ import {
   LayoutDashboard,
   Bot,
   MessageSquare,
-
   ScrollText,
   Settings,
   Blocks,
   Book,
   Users,
+  DatabaseBackup,
 } from 'lucide-react';
 import { PageType } from '../../App';
 import clsx from 'clsx';
@@ -32,8 +32,8 @@ const menuItems: { id: PageType; label: string; icon: React.ElementType }[] = [
   { id: 'agents', label: 'Agents', icon: Users },
   { id: 'ai', label: 'AI Config', icon: Bot },
   { id: 'channels', label: 'Channels', icon: MessageSquare },
-
   { id: 'logs', label: 'Logs', icon: ScrollText },
+  { id: 'backup', label: 'Backup', icon: DatabaseBackup },
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
 

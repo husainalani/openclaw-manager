@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api, Skill, isTauri } from '../../lib/tauri';
-import { Book, Package, AlertCircle, Loader2, Download, Terminal, CheckCircle, Plus, Trash2 } from 'lucide-react';
+import { Book, Package, AlertCircle, Loader2, Download, Terminal, CheckCircle, Plus, Trash2, Search, X } from 'lucide-react';
 
 export function Skills() {
     const [skills, setSkills] = useState<Skill[]>([]);
@@ -15,6 +15,9 @@ export function Skills() {
     // Uninstall state
     const [showUninstallConfirm, setShowUninstallConfirm] = useState<string | null>(null);
     const [uninstallingSkill, setUninstallingSkill] = useState(false);
+
+    // Search state
+    const [searchQuery, setSearchQuery] = useState('');
 
     // Skill install state
     const [showInstallDialog, setShowInstallDialog] = useState(false);
@@ -155,7 +158,24 @@ export function Skills() {
                     <h2 className="text-2xl font-bold text-white mb-2">Skills</h2>
                     <p className="text-gray-400">Manage your OpenClaw skills</p>
                 </div>
-                {clawhubInstalled && (
+                {/* Search */}
+                <div className="relative">
+                    <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                    <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search skills..."
+                        className="bg-dark-700 border border-dark-600 rounded-lg pl-9 pr-8 py-2 text-sm text-gray-300 w-52 focus:outline-none focus:border-claw-500"
+                    />
+                    {searchQuery && (
+                        <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300">
+                            <X size={13} />
+                        </button>
+                    )}
+                </div>
+
+            {clawhubInstalled && (
                     <button
                         onClick={() => setShowInstallDialog(true)}
                         className="flex items-center gap-2 px-4 py-2 bg-claw-500 hover:bg-claw-600 text-white rounded-lg transition-colors"
@@ -310,7 +330,12 @@ export function Skills() {
 
             {!loading && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {skills.map((skill) => (
+                    {skills.filter(s =>
+                        !searchQuery.trim() ||
+                        s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        (s.description ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        s.id.toLowerCase().includes(searchQuery.toLowerCase())
+                    ).map((skill) => (
                         <div
                             key={skill.id}
                             className="bg-dark-700/50 hover:bg-dark-700 border border-dark-600 hover:border-dark-500 rounded-xl p-5 transition-all group"
